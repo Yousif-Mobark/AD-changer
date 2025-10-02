@@ -103,5 +103,5 @@ if [ "$USE_GUNICORN" = true ]; then
   exec gunicorn --workers $WORKERS --bind $HOST:$PORT app:app
 else
   echo "Starting Flask development server on $HOST:$PORT..."
-  exec python app.py
+  exec python3 app.py
 fi
