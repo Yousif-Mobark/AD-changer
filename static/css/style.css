@@ -1,0 +1,322 @@
+/* Dark Theme for AD Password Changer 
+   Sponsored by Digital Transformation
+   Created: October 2025
+*/
+
+:root {
+  /* Main Colors */
+  --dark-bg: #121212;
+  --card-bg: #1e1e1e;
+  --text-primary: #e0e0e0;
+  --text-secondary: #9e9e9e;
+  
+  /* Brand Colors */
+  --dt-primary: #0072ff;
+  --dt-secondary: #00c6ff;
+  --dt-accent: #00ffb3;
+  
+  /* Status Colors */
+  --success: #00c853;
+  --warning: #ffab00;
+  --danger: #ff3d00;
+  --info: #00b0ff;
+  
+  /* Shadows */
+  --shadow-soft: 0 4px 20px rgba(0, 0, 0, 0.25);
+  --shadow-sharp: 0 10px 30px rgba(0, 0, 0, 0.4);
+  
+  /* Animations */
+  --transition-speed: 0.3s;
+}
+
+body {
+  background-color: var(--dark-bg);
+  color: var(--text-primary);
+  font-family: 'Segoe UI', 'Roboto', sans-serif;
+  transition: all var(--transition-speed) ease;
+  min-height: 100vh;
+  position: relative;
+  overflow-x: hidden;
+  padding-bottom: 60px;
+}
+
+.page-container {
+  min-height: 100vh;
+  position: relative;
+  z-index: 1;
+}
+
+/* Gradient Background Animation */
+.bg-animation {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: linear-gradient(45deg, rgba(0,114,255,0.05), rgba(0,198,255,0.05), rgba(0,255,179,0.05));
+  background-size: 400% 400%;
+  animation: gradient 15s ease infinite;
+  z-index: 0;
+  pointer-events: none;
+}
+
+@keyframes gradient {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+/* Cards */
+.card {
+  background-color: var(--card-bg);
+  border: none;
+  box-shadow: var(--shadow-soft);
+  transition: transform var(--transition-speed), box-shadow var(--transition-speed);
+  overflow: hidden;
+}
+
+.card:hover {
+  transform: translateY(-5px);
+  box-shadow: var(--shadow-sharp);
+}
+
+.card-header {
+  position: relative;
+  overflow: hidden;
+}
+
+.card-header::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  background: linear-gradient(45deg, var(--dt-primary), var(--dt-secondary));
+  opacity: 0.9;
+  z-index: 0;
+}
+
+.card-header-content {
+  position: relative;
+  z-index: 1;
+}
+
+.step-indicator {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 12px;
+  background-color: rgba(0,0,0,0.2);
+  font-size: 0.8rem;
+  font-weight: 500;
+  margin-top: 8px;
+}
+
+/* Form Elements */
+.form-control {
+  background-color: #2d2d2d;
+  border: 1px solid #444;
+  color: var(--text-primary);
+  transition: all var(--transition-speed);
+}
+
+.form-control:focus {
+  background-color: #333;
+  border-color: var(--dt-primary);
+  box-shadow: 0 0 0 0.25rem rgba(0, 114, 255, 0.25);
+  color: var(--text-primary);
+}
+
+.form-control::placeholder {
+  color: var(--text-secondary);
+  opacity: 0.7;
+}
+
+.form-label {
+  color: var(--text-primary);
+}
+
+.form-text {
+  color: var(--text-secondary);
+}
+
+/* Buttons */
+.btn-primary {
+  background: linear-gradient(45deg, var(--dt-primary), var(--dt-secondary));
+  border: none;
+  transition: all var(--transition-speed);
+}
+
+.btn-primary:hover, .btn-primary:focus {
+  background: linear-gradient(45deg, var(--dt-secondary), var(--dt-primary));
+  box-shadow: 0 0 15px rgba(0, 114, 255, 0.5);
+  transform: translateY(-2px);
+}
+
+.btn-warning {
+  background: linear-gradient(45deg, #ff9500, #ffcc00);
+  border: none;
+  color: #000;
+}
+
+.btn-warning:hover, .btn-warning:focus {
+  background: linear-gradient(45deg, #ffcc00, #ff9500);
+  box-shadow: 0 0 15px rgba(255, 149, 0, 0.5);
+  transform: translateY(-2px);
+}
+
+.btn-success {
+  background: linear-gradient(45deg, #00c853, var(--dt-accent));
+  border: none;
+}
+
+.btn-success:hover, .btn-success:focus {
+  background: linear-gradient(45deg, var(--dt-accent), #00c853);
+  box-shadow: 0 0 15px rgba(0, 200, 83, 0.5);
+  transform: translateY(-2px);
+}
+
+.btn-outline-secondary {
+  border-color: #555;
+  color: var(--text-primary);
+}
+
+.btn-outline-secondary:hover {
+  background-color: #333;
+  border-color: #777;
+  color: var(--text-primary);
+}
+
+/* Alerts */
+.alert {
+  background-color: #2d2d2d;
+  border: none;
+  color: var(--text-primary);
+}
+
+.alert-success {
+  background-color: rgba(0, 200, 83, 0.15);
+  border-left: 4px solid var(--success);
+}
+
+.alert-danger {
+  background-color: rgba(255, 61, 0, 0.15);
+  border-left: 4px solid var(--danger);
+}
+
+.alert-info {
+  background-color: rgba(0, 176, 255, 0.15);
+  border-left: 4px solid var(--info);
+}
+
+.alert-warning {
+  background-color: rgba(255, 171, 0, 0.15);
+  border-left: 4px solid var(--warning);
+}
+
+/* Progress Bar */
+.progress {
+  background-color: #333;
+}
+
+/* Animations */
+.animate-in {
+  animation: fadeIn 0.5s ease-out forwards;
+  opacity: 0;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-pulse {
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+  100% { transform: scale(1); }
+}
+
+/* Footer */
+.footer {
+  background-color: rgba(0,0,0,0.5);
+  backdrop-filter: blur(5px);
+  position: absolute;
+  bottom: 0;
+  width: 100%;
+  padding: 15px 0;
+}
+
+.sponsor-logo {
+  max-height: 40px;
+  filter: brightness(0) invert(1);
+  transition: all var(--transition-speed);
+}
+
+.sponsor-logo:hover {
+  filter: brightness(1) invert(0);
+}
+
+/* Text Elements */
+.text-muted {
+  color: var(--text-secondary) !important;
+}
+
+/* Icon Animations */
+.icon-spin {
+  animation: spin 4s linear infinite;
+  display: inline-block;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.icon-pulse {
+  animation: iconPulse 2s infinite;
+  display: inline-block;
+}
+
+@keyframes iconPulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.2); }
+  100% { transform: scale(1); }
+}
+
+/* Password Strength Colors - Dark Theme Adjusted */
+.strength-very-weak { color: #ff5252; }
+.strength-weak { color: #ff9100; }
+.strength-fair { color: #ffca28; }
+.strength-good { color: #66bb6a; }
+.strength-strong { color: #00e676; }
+
+/* Input Focus Animation */
+.form-control:focus {
+  animation: focusPulse 1s ease-out;
+}
+
+@keyframes focusPulse {
+  0% { box-shadow: 0 0 0 0 rgba(0, 114, 255, 0.7); }
+  70% { box-shadow: 0 0 0 10px rgba(0, 114, 255, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(0, 114, 255, 0); }
+}
+
+/* Digital Transformation Brand Element */
+.brand-bar {
+  height: 4px;
+  background: linear-gradient(90deg, var(--dt-primary), var(--dt-secondary), var(--dt-accent));
+  width: 100%;
+  position: absolute;
+  top: 0;
+  left: 0;
+}

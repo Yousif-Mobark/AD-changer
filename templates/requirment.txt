@@ -1,0 +1,29 @@
+# AD Password Changer - Requirements
+# Core dependencies
+Flask==3.1.2
+python-dotenv==1.0.1
+ldap3==2.9.1
+Werkzeug==3.1.3
+
+# Security
+cryptography==41.0.7
+bcrypt==3.2.2
+PyJWT==2.7.0
+
+# SSL/TLS support
+pyOpenSSL==23.2.0
+
+# Web UI dependencies
+Flask-WTF==1.2.1
+email-validator==2.1.0
+WTForms==3.1.1
+
+# Testing and development
+pytest==7.4.0
+pytest-cov==4.1.0
+flake8==6.1.0
+black==23.7.0
+
+# Production deployment
+gunicorn==21.2.0
+waitress==2.1.2

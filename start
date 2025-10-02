@@ -1,0 +1,107 @@
+#!/bin/bash
+# AD Password Changer - Start Script
+# This script helps deploy and run the AD Password Changer application
+
+# Default configuration
+PORT=5000
+HOST="0.0.0.0"
+MODE="development"
+USE_GUNICORN=false
+WORKERS=3
+
+# Parse command line arguments
+while [[ $# -gt 0 ]]; do
+  case $1 in
+    -p|--port)
+      PORT="$2"
+      shift 2
+      ;;
+    -h|--host)
+      HOST="$2"
+      shift 2
+      ;;
+    -m|--mode)
+      MODE="$2"
+      shift 2
+      ;;
+    -g|--gunicorn)
+      USE_GUNICORN=true
+      shift
+      ;;
+    -w|--workers)
+      WORKERS="$2"
+      shift 2
+      ;;
+    -h|--help)
+      echo "AD Password Changer - Start Script"
+      echo "Usage: ./start.sh [options]"
+      echo ""
+      echo "Options:"
+      echo "  -p, --port PORT      Set port number (default: 5000)"
+      echo "  -h, --host HOST      Set host address (default: 0.0.0.0)"
+      echo "  -m, --mode MODE      Set mode: development or production (default: development)"
+      echo "  -g, --gunicorn       Use gunicorn server instead of Flask development server"
+      echo "  -w, --workers NUM    Number of gunicorn workers (default: 3)"
+      echo "  -h, --help           Show this help message"
+      exit 0
+      ;;
+    *)
+      echo "Unknown option: $1"
+      exit 1
+      ;;
+  esac
+done
+
+# Check if .env file exists
+if [ ! -f ".env" ]; then
+  echo "Warning: .env file not found. Creating sample .env file..."
+  cat > .env << EOL
+# AD Server Configuration
+AD_SERVER=ldaps://your-ad-server:636
+AD_DOMAIN=your-domain.com
+AD_BASE_DN=DC=your-domain,DC=com
+AD_SERVICE_USER=service-account-username
+AD_SERVICE_PASS=service-account-password
+
+# Security (use strong secret in production)
+SECRET_KEY=change-me-to-a-random-string
+
+# Optional: Disable SSL verification for testing (NOT for production)
+LDAP_SKIP_TLS_VERIFY=False
+EOL
+  echo "Please edit the .env file with your configuration before continuing."
+  exit 1
+fi
+
+# Check if virtual environment exists
+if [ ! -d "venv" ]; then
+  echo "Virtual environment not found. Creating one..."
+  python3 -m venv venv
+  source venv/bin/activate
+  pip install -r requirements.txt
+else
+  source venv/bin/activate
+fi
+
+# Create static directories if they don't exist
+mkdir -p static/css static/js static/images
+
+# Set environment variables based on mode
+if [ "$MODE" = "production" ]; then
+  export FLASK_ENV=production
+  export FLASK_DEBUG=0
+  echo "Running in PRODUCTION mode"
+else
+  export FLASK_ENV=development
+  export FLASK_DEBUG=1
+  echo "Running in DEVELOPMENT mode"
+fi
+
+# Run the application
+if [ "$USE_GUNICORN" = true ]; then
+  echo "Starting gunicorn server on $HOST:$PORT with $WORKERS workers..."
+  exec gunicorn --workers $WORKERS --bind $HOST:$PORT app:app
+else
+  echo "Starting Flask development server on $HOST:$PORT..."
+  exec python app.py
+fi
