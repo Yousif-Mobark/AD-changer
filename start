@@ -1,6 +1,13 @@
 #!/bin/bash
-# AD Password Changer - Start Script
-# This script helps deploy and run the AD Password Changer application
+# AD Password Changer - Service Management Script
+# This script manages the AD Password Changer application as a service
+
+# Configuration
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+APP_NAME="ad-password-changer"
+PID_FILE="$SCRIPT_DIR/${APP_NAME}.pid"
+LOG_FILE="$SCRIPT_DIR/service.log"
+APP_FILE="$SCRIPT_DIR/app.py"
 
 # Default configuration
 PORT=5000
@@ -9,53 +16,68 @@ MODE="development"
 USE_GUNICORN=false
 WORKERS=3
 
-# Parse command line arguments
-while [[ $# -gt 0 ]]; do
-  case $1 in
-    -p|--port)
-      PORT="$2"
-      shift 2
-      ;;
-    -h|--host)
-      HOST="$2"
-      shift 2
-      ;;
-    -m|--mode)
-      MODE="$2"
-      shift 2
-      ;;
-    -g|--gunicorn)
-      USE_GUNICORN=true
-      shift
-      ;;
-    -w|--workers)
-      WORKERS="$2"
-      shift 2
-      ;;
-    -h|--help)
-      echo "AD Password Changer - Start Script"
-      echo "Usage: ./start.sh [options]"
-      echo ""
-      echo "Options:"
-      echo "  -p, --port PORT      Set port number (default: 5000)"
-      echo "  -h, --host HOST      Set host address (default: 0.0.0.0)"
-      echo "  -m, --mode MODE      Set mode: development or production (default: development)"
-      echo "  -g, --gunicorn       Use gunicorn server instead of Flask development server"
-      echo "  -w, --workers NUM    Number of gunicorn workers (default: 3)"
-      echo "  -h, --help           Show this help message"
-      exit 0
-      ;;
-    *)
-      echo "Unknown option: $1"
-      exit 1
-      ;;
-  esac
-done
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
 
-# Check if .env file exists
-if [ ! -f ".env" ]; then
-  echo "Warning: .env file not found. Creating sample .env file..."
-  cat > .env << EOL
+# Logging function
+log_message() {
+    echo "$(date '+%Y-%m-%d %H:%M:%S') - $1" | tee -a "$LOG_FILE"
+}
+
+# Print colored message
+print_message() {
+    local color=$1
+    local message=$2
+    echo -e "${color}${message}${NC}"
+    log_message "$message"
+}
+
+# Check if process is running
+is_running() {
+    if [ -f "$PID_FILE" ]; then
+        local pid=$(cat "$PID_FILE")
+        if kill -0 "$pid" 2>/dev/null; then
+            return 0
+        else
+            rm -f "$PID_FILE"
+            return 1
+        fi
+    else
+        return 1
+    fi
+}
+
+# Get process status
+get_status() {
+    if is_running; then
+        local pid=$(cat "$PID_FILE")
+        print_message "$GREEN" "✓ $APP_NAME is running (PID: $pid)"
+        return 0
+    else
+        print_message "$RED" "✗ $APP_NAME is not running"
+        return 1
+    fi
+}
+
+# Start the application
+start_service() {
+    print_message "$BLUE" "Starting $APP_NAME service..."
+    
+    # Check if already running
+    if is_running; then
+        print_message "$YELLOW" "⚠ Service is already running"
+        get_status
+        return 1
+    fi
+    
+    # Check if .env file exists
+    if [ ! -f "$SCRIPT_DIR/.env" ]; then
+        print_message "$RED" "✗ .env file not found. Creating sample .env file..."
+        cat > "$SCRIPT_DIR/.env" << EOL
 # AD Server Configuration
 AD_SERVER=ldaps://your-ad-server:636
 AD_DOMAIN=your-domain.com
@@ -63,45 +85,263 @@ AD_BASE_DN=DC=your-domain,DC=com
 AD_SERVICE_USER=service-account-username
 AD_SERVICE_PASS=service-account-password
 
+# Email Configuration for OTP
+SMTP_SERVER=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USERNAME=your-email@gmail.com
+SMTP_PASSWORD=your-app-password
+SMTP_USE_TLS=True
+FROM_EMAIL=your-email@gmail.com
+
+# OTP Configuration
+OTP_EXPIRY_MINUTES=5
+OTP_LENGTH=6
+
 # Security (use strong secret in production)
 SECRET_KEY=change-me-to-a-random-string
 
 # Optional: Disable SSL verification for testing (NOT for production)
 LDAP_SKIP_TLS_VERIFY=False
 EOL
-  echo "Please edit the .env file with your configuration before continuing."
-  exit 1
+        print_message "$YELLOW" "Please edit the .env file with your configuration before starting the service."
+        return 1
+    fi
+    
+    # Create static directories if they don't exist
+    mkdir -p "$SCRIPT_DIR/static/css" "$SCRIPT_DIR/static/js" "$SCRIPT_DIR/static/images"
+    
+    # Set environment variables based on mode
+    if [ "$MODE" = "production" ]; then
+        export FLASK_ENV=production
+        export FLASK_DEBUG=0
+        log_message "Running in PRODUCTION mode"
+    else
+        export FLASK_ENV=development
+        export FLASK_DEBUG=1
+        log_message "Running in DEVELOPMENT mode"
+    fi
+    
+    # Change to script directory
+    cd "$SCRIPT_DIR"
+    
+    # Start the application
+    if [ "$USE_GUNICORN" = true ]; then
+        log_message "Starting gunicorn server on $HOST:$PORT with $WORKERS workers..."
+        nohup gunicorn --workers $WORKERS --bind $HOST:$PORT app:app >> "$LOG_FILE" 2>&1 &
+        local pid=$!
+    else
+        log_message "Starting Flask development server on $HOST:$PORT..."
+        nohup python3 "$APP_FILE" >> "$LOG_FILE" 2>&1 &
+        local pid=$!
+    fi
+    
+    # Save PID
+    echo $pid > "$PID_FILE"
+    
+    # Wait a moment and check if it's still running
+    sleep 2
+    if is_running; then
+        print_message "$GREEN" "✓ $APP_NAME started successfully (PID: $pid)"
+        print_message "$BLUE" "📋 Log file: $LOG_FILE"
+        print_message "$BLUE" "🌐 Access the application at: http://$HOST:$PORT"
+        return 0
+    else
+        print_message "$RED" "✗ Failed to start $APP_NAME"
+        print_message "$YELLOW" "Check the log file for details: $LOG_FILE"
+        return 1
+    fi
+}
+
+# Stop the application
+stop_service() {
+    print_message "$BLUE" "Stopping $APP_NAME service..."
+    
+    if ! is_running; then
+        print_message "$YELLOW" "⚠ Service is not running"
+        return 1
+    fi
+    
+    local pid=$(cat "$PID_FILE")
+    
+    # Try graceful shutdown first
+    print_message "$BLUE" "Sending TERM signal to process $pid..."
+    kill -TERM "$pid" 2>/dev/null
+    
+    # Wait for graceful shutdown
+    local count=0
+    while [ $count -lt 10 ]; do
+        if ! kill -0 "$pid" 2>/dev/null; then
+            break
+        fi
+        sleep 1
+        count=$((count + 1))
+    done
+    
+    # Force kill if still running
+    if kill -0 "$pid" 2>/dev/null; then
+        print_message "$YELLOW" "Forcing shutdown..."
+        kill -KILL "$pid" 2>/dev/null
+        sleep 1
+    fi
+    
+    # Clean up PID file
+    rm -f "$PID_FILE"
+    
+    if ! kill -0 "$pid" 2>/dev/null; then
+        print_message "$GREEN" "✓ $APP_NAME stopped successfully"
+        return 0
+    else
+        print_message "$RED" "✗ Failed to stop $APP_NAME"
+        return 1
+    fi
+}
+
+# Restart the application
+restart_service() {
+    print_message "$BLUE" "Restarting $APP_NAME service..."
+    stop_service
+    sleep 2
+    start_service
+}
+
+# Show service logs
+show_logs() {
+    local lines=${1:-50}
+    if [ -f "$LOG_FILE" ]; then
+        print_message "$BLUE" "Showing last $lines lines of $LOG_FILE:"
+        echo "----------------------------------------"
+        tail -n "$lines" "$LOG_FILE"
+    else
+        print_message "$YELLOW" "⚠ Log file not found: $LOG_FILE"
+    fi
+}
+
+# Show help
+show_help() {
+    cat << EOF
+AD Password Changer - Service Management Script
+
+Usage: $0 [COMMAND] [OPTIONS]
+
+Commands:
+  --start                  Start the service
+  --stop                   Stop the service  
+  --restart                Restart the service
+  --status                 Show service status
+  --logs [lines]           Show service logs (default: 50 lines)
+  --help                   Show this help message
+
+Options:
+  -p, --port PORT          Set port number (default: 5000)
+  -H, --host HOST          Set host address (default: 0.0.0.0)
+  -m, --mode MODE          Set mode: development or production (default: development)
+  -g, --gunicorn           Use gunicorn server instead of Flask development server
+  -w, --workers NUM        Number of gunicorn workers (default: 3)
+
+Examples:
+  $0 --start                           # Start the service
+  $0 --start -p 8080 -g -w 4          # Start with gunicorn on port 8080 with 4 workers
+  $0 --stop                            # Stop the service
+  $0 --restart                         # Restart the service
+  $0 --status                          # Check service status
+  $0 --logs 100                        # Show last 100 log lines
+
+Files:
+  PID file: $PID_FILE
+  Log file: $LOG_FILE
+  Config:   $SCRIPT_DIR/.env
+
+EOF
+}
+
+# Parse command line arguments
+if [ $# -eq 0 ]; then
+    show_help
+    exit 1
 fi
 
-# Check if virtual environment exists
-# if [ ! -d "venv" ]; then
-#   echo "Virtual environment not found. Creating one..."
-#   python3 -m venv venv
-#   source venv/bin/activate
-#   pip3 install -r requirements.txt
-# else
-#   source venv/bin/activate
-# fi
+COMMAND=""
+LOG_LINES=50
 
-# Create static directories if they don't exist
-mkdir -p static/css static/js static/images
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --start)
+            COMMAND="start"
+            shift
+            ;;
+        --stop)
+            COMMAND="stop"
+            shift
+            ;;
+        --restart)
+            COMMAND="restart"
+            shift
+            ;;
+        --status)
+            COMMAND="status"
+            shift
+            ;;
+        --logs)
+            COMMAND="logs"
+            if [[ $2 =~ ^[0-9]+$ ]]; then
+                LOG_LINES=$2
+                shift 2
+            else
+                shift
+            fi
+            ;;
+        --help)
+            show_help
+            exit 0
+            ;;
+        -p|--port)
+            PORT="$2"
+            shift 2
+            ;;
+        -H|--host)
+            HOST="$2"
+            shift 2
+            ;;
+        -m|--mode)
+            MODE="$2"
+            shift 2
+            ;;
+        -g|--gunicorn)
+            USE_GUNICORN=true
+            shift
+            ;;
+        -w|--workers)
+            WORKERS="$2"
+            shift 2
+            ;;
+        *)
+            print_message "$RED" "✗ Unknown option: $1"
+            show_help
+            exit 1
+            ;;
+    esac
+done
 
-# Set environment variables based on mode
-if [ "$MODE" = "production" ]; then
-  export FLASK_ENV=production
-  export FLASK_DEBUG=0
-  echo "Running in PRODUCTION mode"
-else
-  export FLASK_ENV=development
-  export FLASK_DEBUG=1
-  echo "Running in DEVELOPMENT mode"
-fi
-
-# Run the application
-if [ "$USE_GUNICORN" = true ]; then
-  echo "Starting gunicorn server on $HOST:$PORT with $WORKERS workers..."
-  exec gunicorn --workers $WORKERS --bind $HOST:$PORT app:app
-else
-  echo "Starting Flask development server on $HOST:$PORT..."
-  exec python3 app.py
-fi
+# Execute command
+case $COMMAND in
+    start)
+        start_service
+        ;;
+    stop)
+        stop_service
+        ;;
+    restart)
+        restart_service
+        ;;
+    status)
+        get_status
+        ;;
+    logs)
+        show_logs "$LOG_LINES"
+        ;;
+    *)
+        print_message "$RED" "✗ No valid command specified"
+        show_help
+        exit 1
+        ;;
+esac
