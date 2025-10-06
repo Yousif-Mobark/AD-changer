@@ -4,7 +4,8 @@ A secure self-service password change portal for Active Directory users. This we
 
 ## Features
 
-- Three-step secure password change process
+- Three-step secure password change process with OTP verification
+- Email-based One-Time Password (OTP) for enhanced security
 - Dark theme with modern animations
 - SSL/TLS support for secure LDAP connections
 - Password complexity validation
@@ -12,6 +13,7 @@ A secure self-service password change portal for Active Directory users. This we
 - Responsive design for all devices
 - Digital Transformation branding
 - Secure service account password change method
+- Auto-expiring verification codes (5 minutes)
 
 ## Technology Stack
 
@@ -61,8 +63,9 @@ gunicorn -w 4 -b 0.0.0.0:5000 app:app
 
 1. User enters their username
 2. User verifies their identity by entering their current password
-3. User sets a new password that meets complexity requirements
-4. Password is changed in Active Directory
+3. System sends a 6-digit verification code to user's email address
+4. User enters the OTP code and sets a new password that meets complexity requirements
+5. Password is changed in Active Directory after successful OTP verification
 
 ## Environment Variables
 
@@ -75,6 +78,14 @@ gunicorn -w 4 -b 0.0.0.0:5000 app:app
 | AD_SERVICE_PASS | Service account password | SecureP@ssw0rd! |
 | SECRET_KEY | Flask secret key for session encryption | random-string-here |
 | LDAP_SKIP_TLS_VERIFY | Skip TLS certificate validation (dev only) | True/False |
+| SMTP_SERVER | SMTP server for sending emails | smtp.gmail.com |
+| SMTP_PORT | SMTP server port | 587 |
+| SMTP_USERNAME | SMTP username for authentication | your-email@gmail.com |
+| SMTP_PASSWORD | SMTP password (use app password for Gmail) | your-app-password |
+| SMTP_USE_TLS | Enable TLS for SMTP connection | True/False |
+| FROM_EMAIL | Email address to send from | your-email@gmail.com |
+| OTP_EXPIRY_MINUTES | OTP expiration time in minutes | 5 |
+| OTP_LENGTH | Length of generated OTP code | 6 |
 
 ## Sponsored by
 
