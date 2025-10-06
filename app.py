@@ -3,6 +3,7 @@ import ssl
 import random
 import secrets
 import smtplib
+import logging
 from datetime import datetime, timedelta
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
@@ -14,6 +15,17 @@ load_dotenv()
 
 app = Flask(__name__)
 app.secret_key = os.getenv('SECRET_KEY', 'dev-secret-key-change-in-prod')
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler('service.log'),
+        logging.StreamHandler()
+    ]
+)
+logger = logging.getLogger(__name__)
 
 # AD Config
 AD_SERVER = os.getenv('AD_SERVER')
@@ -112,9 +124,10 @@ def send_otp_email(email, otp, username):
                 server.login(SMTP_USERNAME, SMTP_PASSWORD)
             server.send_message(msg)
         
+        logger.info(f"OTP email sent successfully to {email} for user {username}")
         return True
     except Exception as e:
-        print(f"Failed to send OTP email: {e}")
+        logger.error(f"Failed to send OTP email to {email} for user {username}: {e}")
         return False
 
 def get_user_email(username):
@@ -156,7 +169,7 @@ def get_user_email(username):
         conn.unbind()
         return None
     except Exception as e:
-        print(f"Error getting user email: {e}")
+        logger.error(f"Error getting user email for {username}: {e}")
         return None
 
 def get_ldap_connection(user_principal, password):
@@ -188,7 +201,7 @@ def get_ldap_connection(user_principal, password):
         )
         return conn
     except Exception as e:
-        print(f"LDAP connection setup error: {e}")
+        logger.error(f"LDAP connection setup error: {e}")
         raise
 
 @app.route('/', methods=['GET', 'POST'])
@@ -196,8 +209,10 @@ def enter_username():
     if request.method == 'POST':
         username = request.form.get('username', '').strip()
         if not username:
+            logger.warning(f"Empty username submitted from IP: {request.remote_addr}")
             return render_template('index.html', error="Username is required")
         
+        logger.info(f"Username '{username}' submitted for password change from IP: {request.remote_addr}")
         session['username'] = username
         return redirect(url_for('verify_password'))
     
@@ -217,21 +232,25 @@ def verify_password():
         user_principal = f"{username}@{AD_DOMAIN}"
         
         try:
+            logger.info(f"Attempting authentication for user: {username}")
             conn = get_ldap_connection(user_principal, current_password)
             if conn.bind():
                 # Authentication successful
+                logger.info(f"Authentication successful for user: {username}")
                 conn.unbind()
                 
                 # Get user email for OTP
                 user_email = get_user_email(username)
                 user_email = username+'@elc.edu.sa' if not user_email else user_email
                 if not user_email:
+                    logger.error(f"Email address not found for user: {username}")
                     return render_template('verify_password.html', username=username, 
                                          error="Email address not found in Active Directory. Please contact IT support.")
                 
                 # Generate and send OTP
                 otp = generate_otp()
                 otp_expiry = datetime.now() + timedelta(minutes=OTP_EXPIRY_MINUTES)
+                logger.info(f"Generated OTP for user: {username}, expires at: {otp_expiry}")
                 
                 if send_otp_email(user_email, otp, username):
                     # Store OTP details in session
@@ -240,13 +259,17 @@ def verify_password():
                     session['user_email'] = user_email
                     session['authenticated'] = True
                     
+                    logger.info(f"OTP sent successfully to {user_email} for user: {username}")
                     return redirect(url_for('change_password'))
                 else:
+                    logger.error(f"Failed to send OTP email for user: {username}")
                     return render_template('verify_password.html', username=username,
                                          error="Failed to send verification code. Please try again.")
             else:
+                logger.warning(f"Authentication failed for user: {username} - invalid password")
                 return render_template('verify_password.html', username=username, error="Invalid current password")
         except Exception as e:
+            logger.error(f"Authentication error for user {username}: {str(e)}")
             return render_template('verify_password.html', username=username, error=f"Authentication error: {str(e)}")
     
     return render_template('verify_password.html', username=username)
@@ -257,10 +280,12 @@ def change_password():
     authenticated = session.get('authenticated')
     
     if not username or not authenticated:
+        logger.warning(f"Unauthorized access attempt to change password route from IP: {request.remote_addr}")
         return redirect(url_for('enter_username'))
     
     # Check if OTP session data exists
     if 'otp' not in session or 'otp_expiry' not in session:
+        logger.warning(f"Missing OTP session data for user: {username}")
         return redirect(url_for('verify_password'))
     
     if request.method == 'POST':
@@ -310,11 +335,13 @@ def change_password():
         
         # Validate OTP
         if user_otp != stored_otp:
+            logger.warning(f"Invalid OTP attempt for user: {username}, provided: {user_otp}")
             return render_template('change_password.html', username=username,
                                  user_email=session.get('user_email'),
                                  error="Invalid verification code. Please check and try again.")
         
         # OTP is valid, proceed with password change
+        logger.info(f"OTP validated successfully for user: {username}, proceeding with password change")
         result = change_password_with_service_account(username, new_password)
         
         # Clear OTP from session after use
@@ -334,8 +361,10 @@ def resend_otp():
     authenticated = session.get('authenticated')
     
     if not username or not authenticated:
+        logger.warning(f"Unauthorized resend OTP attempt from IP: {request.remote_addr}")
         return redirect(url_for('enter_username'))
     
+    logger.info(f"Resending OTP for user: {username}")
     try:
         # Get user email
         user_email = get_user_email(username)
@@ -354,14 +383,17 @@ def resend_otp():
             session['otp_expiry'] = otp_expiry.isoformat()
             session['user_email'] = user_email
             
+            logger.info(f"OTP resent successfully to {user_email} for user: {username}")
             return render_template('change_password.html', username=username,
                                  user_email=user_email,
                                  success="New verification code sent to your email.")
         else:
+            logger.error(f"Failed to resend OTP for user: {username}")
             return render_template('change_password.html', username=username,
                                  user_email=session.get('user_email'),
                                  error="Failed to send verification code. Please try again.")
     except Exception as e:
+        logger.error(f"Error resending OTP for user {username}: {str(e)}")
         return render_template('change_password.html', username=username,
                              user_email=session.get('user_email'),
                              error=f"Error sending OTP: {str(e)}")
@@ -395,9 +427,9 @@ def change_password_with_service_account(username, new_password):
         # Search for user DN - use domain root instead of service account OU
         domain_root = "DC=" + ",DC=".join(AD_DOMAIN.split('.'))
         
-        print(f"DEBUG: Searching for user: {user_principal}")
-        print(f"DEBUG: Search base: {domain_root}")
-        print(f"DEBUG: Search filter: {search_filter}")
+        logger.info(f"Searching for user: {user_principal}")
+        logger.info(f"Search base: {domain_root}")
+        logger.info(f"Search filter: {search_filter}")
         
         # Try multiple search filters and bases
         user_dn = None
@@ -408,7 +440,7 @@ def change_password_with_service_account(username, new_password):
         ]
         
         for search_base, search_filter in search_attempts:
-            print(f"DEBUG: Trying search - Base: {search_base}, Filter: {search_filter}")
+            logger.info(f"Trying search - Base: {search_base}, Filter: {search_filter}")
             conn.search(
                 search_base=search_base,
                 search_filter=search_filter,
@@ -417,44 +449,47 @@ def change_password_with_service_account(username, new_password):
             
             if conn.entries:
                 user_dn = conn.entries[0].distinguishedName.value
-                print(f"DEBUG: Found user DN: {user_dn}")
+                logger.info(f"Found user DN: {user_dn}")
                 break
             else:
-                print(f"DEBUG: No entries found with this search")
+                logger.warning(f"No entries found with search - Base: {search_base}, Filter: {search_filter}")
         
         if not user_dn:
             conn.unbind()
             error_msg = f"User '{username}' not found in domain '{AD_DOMAIN}'"
-            print(f"DEBUG: {error_msg}")
+            logger.error(error_msg)
             return render_template('change_password.html',
                                  username=session['username'],
                                  error=error_msg)
         
         # Change password
-        print(f"DEBUG: Attempting to change password for DN: {user_dn}")
+        logger.info(f"Attempting to change password for DN: {user_dn}")
         unicode_pwd = f'"{new_password}"'.encode('utf-16-le')
         success = conn.modify(
             user_dn,
             {'unicodePwd': [(MODIFY_REPLACE, [unicode_pwd])]}
         )
         
-        print(f"DEBUG: Password change result: {success}")
+        logger.info(f"Password change result: {success}")
         if not success:
-            print(f"DEBUG: Error details: {conn.result}")
+            logger.error(f"Password change failed - Error details: {conn.result}")
         
         conn.unbind()
         
         if success:
             # Clear session after success
+            logger.info(f"Password changed successfully for user: {username}")
             session.clear()
             return render_template('index.html', success="Password changed successfully!")
         else:
             error_msg = conn.result.get('message', 'Unknown error')
+            logger.error(f"Password change failed for user {username}: {error_msg}")
             return render_template('change_password.html',
                                  username=session['username'],
                                  error=f"Failed to change password: {error_msg}")
             
     except Exception as e:
+        logger.error(f"System error during password change for user {username}: {str(e)}")
         return render_template('change_password.html',
                              username=session['username'],
                              error=f"System error: {str(e)}")
@@ -464,4 +499,5 @@ def change_password_with_service_account(username, new_password):
 # AD_SERVICE_PASS=VerySecurePassword123!
 
 if __name__ == '__main__':
+    logger.info("Starting AD Password Changer application")
     app.run(host='0.0.0.0', port=5000, debug=True)
