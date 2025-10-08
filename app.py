@@ -58,60 +58,12 @@ def send_otp_email(email, otp, username):
         msg['From'] = FROM_EMAIL
         msg['To'] = email
         
-        # Create HTML content
-        html_content = f"""
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <style>
-                body {{ font-family: Arial, sans-serif; background-color: #f4f4f4; margin: 0; padding: 20px; }}
-                .container {{ max-width: 600px; margin: 0 auto; background-color: white; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }}
-                .header {{ background: linear-gradient(135deg, #0072ff, #00c6ff); color: white; padding: 20px; text-align: center; border-radius: 10px 10px 0 0; }}
-                .content {{ padding: 30px; }}
-                .otp-box {{ background-color: #f8f9fa; border: 2px solid #007bff; border-radius: 8px; padding: 20px; text-align: center; margin: 20px 0; }}
-                .otp-code {{ font-size: 32px; font-weight: bold; color: #007bff; letter-spacing: 8px; }}
-                .footer {{ background-color: #f8f9fa; padding: 15px; text-align: center; border-radius: 0 0 10px 10px; color: #6c757d; font-size: 12px; }}
-                .warning {{ background-color: #fff3cd; border: 1px solid #ffeaa7; border-radius: 5px; padding: 10px; margin: 15px 0; color: #856404; }}
-            </style>
-        </head>
-        <body>
-            <div class="container">
-                <div class="header">
-                    <h2>🔐 Password Change Verification</h2>
-                    <p>Digital Transformation Security</p>
-                </div>
-                <div class="content">
-                    <h3>Hello {username},</h3>
-                    <p>You have requested to change your Active Directory password. To complete this process, please use the verification code below:</p>
-                    
-                    <div class="otp-box">
-                        <div class="otp-code">{otp}</div>
-                    </div>
-                    
-                    <div class="warning">
-                        <strong>⚠️ Security Notice:</strong>
-                        <ul style="margin: 10px 0; padding-left: 20px;">
-                            <li>This code will expire in {OTP_EXPIRY_MINUTES} minutes</li>
-                            <li>Never share this code with anyone</li>
-                            <li>If you didn't request this, please contact IT support immediately</li>
-                        </ul>
-                    </div>
-                    
-                    <p><strong>Request Details:</strong></p>
-                    <ul>
-                        <li><strong>Username:</strong> {username}</li>
-                        <li><strong>Time:</strong> {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</li>
-                        <li><strong>Service:</strong> AD Password Changer</li>
-                    </ul>
-                </div>
-                <div class="footer">
-                    <p>This is an automated message from Digital Transformation Password Service</p>
-                    <p>© 2025 Digital Transformation. All rights reserved.</p>
-                </div>
-            </div>
-        </body>
-        </html>
-        """
+        # Render HTML content from template
+        html_content = render_template('otp_email.html', 
+                                     username=username,
+                                     otp=otp,
+                                     expiry_minutes=OTP_EXPIRY_MINUTES,
+                                     timestamp=datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
         
         # Attach HTML content
         msg.attach(MIMEText(html_content, 'html'))
@@ -213,66 +165,38 @@ def enter_username():
             return render_template('index.html', error="Username is required")
         
         logger.info(f"Username '{username}' submitted for password change from IP: {request.remote_addr}")
-        session['username'] = username
-        return redirect(url_for('verify_password'))
+        
+        # Get user email for OTP
+        user_email = get_user_email(username)
+        user_email = username+'@elc.edu.sa' if not user_email else user_email
+        if not user_email:
+            logger.error(f"Email address not found for user: {username}")
+            return render_template('index.html', 
+                                 error="Email address not found in Active Directory. Please contact IT support.")
+        
+        # Generate and send OTP
+        otp = generate_otp()
+        otp_expiry = datetime.now() + timedelta(minutes=OTP_EXPIRY_MINUTES)
+        logger.info(f"Generated OTP for user: {username}, expires at: {otp_expiry}")
+        
+        if send_otp_email(user_email, otp, username):
+            # Store details in session
+            session['username'] = username
+            session['otp'] = otp
+            session['otp_expiry'] = otp_expiry.isoformat()
+            session['user_email'] = user_email
+            session['authenticated'] = True
+            
+            logger.info(f"OTP sent successfully to {user_email} for user: {username}")
+            return redirect(url_for('change_password'))
+        else:
+            logger.error(f"Failed to send OTP email for user: {username}")
+            return render_template('index.html',
+                                 error="Failed to send verification code. Please try again.")
     
     return render_template('index.html')
 
-@app.route('/verify', methods=['GET', 'POST'])
-def verify_password():
-    username = session.get('username')
-    if not username:
-        return redirect(url_for('enter_username'))
-    
-    if request.method == 'POST':
-        current_password = request.form.get('current_password')
-        if not current_password:
-            return render_template('verify_password.html', username=username, error="Password is required")
-        
-        user_principal = f"{username}@{AD_DOMAIN}"
-        
-        try:
-            logger.info(f"Attempting authentication for user: {username}")
-            conn = get_ldap_connection(user_principal, current_password)
-            if conn.bind():
-                # Authentication successful
-                logger.info(f"Authentication successful for user: {username}")
-                conn.unbind()
-                
-                # Get user email for OTP
-                user_email = get_user_email(username)
-                user_email = username+'@elc.edu.sa' if not user_email else user_email
-                if not user_email:
-                    logger.error(f"Email address not found for user: {username}")
-                    return render_template('verify_password.html', username=username, 
-                                         error="Email address not found in Active Directory. Please contact IT support.")
-                
-                # Generate and send OTP
-                otp = generate_otp()
-                otp_expiry = datetime.now() + timedelta(minutes=OTP_EXPIRY_MINUTES)
-                logger.info(f"Generated OTP for user: {username}, expires at: {otp_expiry}")
-                
-                if send_otp_email(user_email, otp, username):
-                    # Store OTP details in session
-                    session['otp'] = otp
-                    session['otp_expiry'] = otp_expiry.isoformat()
-                    session['user_email'] = user_email
-                    session['authenticated'] = True
-                    
-                    logger.info(f"OTP sent successfully to {user_email} for user: {username}")
-                    return redirect(url_for('change_password'))
-                else:
-                    logger.error(f"Failed to send OTP email for user: {username}")
-                    return render_template('verify_password.html', username=username,
-                                         error="Failed to send verification code. Please try again.")
-            else:
-                logger.warning(f"Authentication failed for user: {username} - invalid password")
-                return render_template('verify_password.html', username=username, error="Invalid current password")
-        except Exception as e:
-            logger.error(f"Authentication error for user {username}: {str(e)}")
-            return render_template('verify_password.html', username=username, error=f"Authentication error: {str(e)}")
-    
-    return render_template('verify_password.html', username=username)
+
 
 @app.route('/change', methods=['GET', 'POST'])
 def change_password():
@@ -286,7 +210,7 @@ def change_password():
     # Check if OTP session data exists
     if 'otp' not in session or 'otp_expiry' not in session:
         logger.warning(f"Missing OTP session data for user: {username}")
-        return redirect(url_for('verify_password'))
+        return redirect(url_for('enter_username'))
     
     if request.method == 'POST':
         new_password = request.form.get('new_password')
@@ -368,6 +292,7 @@ def resend_otp():
     try:
         # Get user email
         user_email = get_user_email(username)
+        user_email = username+'@elc.edu.sa' if not user_email else user_email
         if not user_email:
             return render_template('change_password.html', username=username,
                                  user_email=session.get('user_email'),
