@@ -1,96 +1,129 @@
 <!DOCTYPE html>
-<html>
-<head>
+<html dir="rtl" lang="ar">
+  <head>
+    <meta charset="UTF-8">
     <style>
-        body { 
-            font-family: Arial, sans-serif; 
-            background-color: #f4f4f4; 
-            margin: 0; 
-            padding: 20px; 
-        }
-        .container { 
-            max-width: 600px; 
-            margin: 0 auto; 
-            background-color: white; 
-            border-radius: 10px; 
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1); 
-        }
-        .header { 
-            background: linear-gradient(135deg, #0072ff, #00c6ff); 
-            color: white; 
-            padding: 20px; 
-            text-align: center; 
-            border-radius: 10px 10px 0 0; 
-        }
-        .content { 
-            padding: 30px; 
-        }
-        .otp-box { 
-            background-color: #f8f9fa; 
-            border: 2px solid #007bff; 
-            border-radius: 8px; 
-            padding: 20px; 
-            text-align: center; 
-            margin: 20px 0; 
-        }
-        .otp-code { 
-            font-size: 32px; 
-            font-weight: bold; 
-            color: #007bff; 
-            letter-spacing: 8px; 
-        }
-        .footer { 
-            background-color: #f8f9fa; 
-            padding: 15px; 
-            text-align: center; 
-            border-radius: 0 0 10px 10px; 
-            color: #6c757d; 
-            font-size: 12px; 
-        }
-        .warning { 
-            background-color: #fff3cd; 
-            border: 1px solid #ffeaa7; 
-            border-radius: 5px; 
-            padding: 10px; 
-            margin: 15px 0; 
-            color: #856404; 
-        }
+      body {
+        font-family: "Segoe UI", Tahoma, Arial, sans-serif;
+        background-color: #f4f4f4;
+        margin: 0;
+        padding: 20px;
+        direction: rtl;
+      }
+      .container {
+        max-width: 600px;
+        margin: 0 auto;
+        background-color: white;
+        border-radius: 10px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        direction: rtl;
+      }
+      .logo-section {
+        background-color: white;
+        padding: 20px;
+        text-align: center;
+        border-radius: 10px 10px 0 0;
+        border-bottom: 1px solid #e9ecef;
+      }
+      .logo {
+        max-width: 150px;
+        height: auto;
+        margin: 0 auto;
+      }
+      .header {
+        background: linear-gradient(135deg, #0072ff, #00c6ff);
+        color: white;
+        padding: 20px;
+        text-align: center;
+        border-radius: 0;
+      }
+      .content {
+        padding: 30px;
+        text-align: right;
+        direction: rtl;
+      }
+      .otp-box {
+        background-color: #f8f9fa;
+        border: 2px solid #007bff;
+        border-radius: 8px;
+        padding: 20px;
+        text-align: center;
+        margin: 20px 0;
+      }
+      .otp-code {
+        font-size: 32px;
+        font-weight: bold;
+        color: #007bff;
+        letter-spacing: 8px;
+        font-family: monospace;
+      }
+      .footer {
+        background-color: #f8f9fa;
+        padding: 15px;
+        text-align: center;
+        border-radius: 0 0 10px 10px;
+        color: #6c757d;
+        font-size: 12px;
+      }
+      .warning {
+        background-color: #fff3cd;
+        border: 1px solid #ffeaa7;
+        border-radius: 5px;
+        padding: 10px;
+        margin: 15px 0;
+        color: #856404;
+      }
+      ul {
+        text-align: right;
+        padding-right: 20px;
+      }
     </style>
-</head>
-<body>
+  </head>
+  <body>
     <div class="container">
-        <div class="header">
-            <h2>🔐 Password Change Verification</h2>
-            <p>Digital Transformation Security</p>
+      <!-- Logo Section -->
+      <div class="logo-section">
+        <img src="https://assets.nelc.gov.sa/html-ltr/img/logo-1.png" alt="شعار الشركة" class="logo" />
+      </div>
+
+      <div class="header">
+        <h2>🔐 التحقق من تغيير كلمة المرور</h2>
+        <p>أمان التحول الرقمي</p>
+      </div>
+      <div class="content">
+        <h3>مرحباً {{ username }}،</h3>
+        <p>
+          لقد طلبت تغيير كلمة مرور Active Directory الخاصة بك. لإكمال هذه العملية، 
+          يرجى استخدام رمز التحقق أدناه:
+        </p>
+
+        <div class="otp-box">
+          <div class="otp-code">{{ otp }}</div>
         </div>
-        <div class="content">
-            <h3>Hello {{ username }},</h3>
-            <p>You have requested to change your Active Directory password. To complete this process, please use the verification code below:</p>
-            
-            <div class="otp-box">
-                <div class="otp-code">{{ otp }}</div>
-            </div>
-            
-            <div class="warning">
-                <strong>⚠️ Security Notice:</strong>
-                <ul style="margin: 10px 0; padding-left: 20px;">
-                    <li>This code will expire in {{ expiry_minutes }} minutes</li>
-                    <li>Never share this code with anyone</li>
-                    <li>If you didn't request this, please contact IT support immediately</li>
-                </ul>
-            </div>
-            
-            <p><strong>Request Details:</strong></p>
-            <ul>
-                <li><strong>Username:</strong> {{ username }}</li>
-                <li><strong>Time:</strong> {{ timestamp }}</li>
-                <li><strong>Service:</strong> AD Password Changer</li>
-            </ul>
+
+        <div class="warning">
+          <strong>⚠️ تنبيه أمني:</strong>
+          <ul style="margin: 10px 0; padding-right: 20px">
+            <li>ستنتهي صلاحية هذا الرمز خلال {{ expiry_minutes }} دقيقة</li>
+            <li>لا تشارك هذا الرمز مع أي شخص آخر</li>
+            <li>إذا لم تطلب هذا، يرجى الاتصال بدعم تقنية المعلومات فوراً</li>
+          </ul>
         </div>
-        <div class="footer">
-            <p>This is an automated message from Digital Transformation Password Service</p>
-            <p>© 2025 Digital Transformation. All rights reserved.</p>
-        </div>
+
+        <p><strong>تفاصيل الطلب:</strong></p>
+        <ul>
+          <li><strong>اسم المستخدم:</strong> {{ username }}</li>
+          <li><strong>الوقت:</strong> {{ timestamp }}</li>
+          <li><strong>الخدمة:</strong> تغير كلمات مرور AD</li>
+        </ul>
+      </div>
+      <div class="footer">
+        <p>
+          هذه رسالة تلقائية من خدمة كلمات المرور للتحول الرقمي
+        </p>
+        <p>© 2025 التحول الرقمي. جميع الحقوق محفوظة.</p>
+      </div>
     </div>
-</body>
+  </body>
 </html>
+
